@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% load static %}
+{% load custom_tags %}
+
+{% block extra_css %}  
+    <link rel="stylesheet" href="{% static 'home/css/home.css' %}">          
+{% endblock %}
+
+
+{% block content %}
+    <div class="row m-4 text-center mt-5">
+        <div class="col-12 col-md-4 order-md-1 order-2 till-screen p-0">
+            {% for product in bag_content %}
+                <div class="row m-0 till-text">
+                    <div class="col-12 text-start border-bottom fw-bold bg-custom-3">{{ forloop.counter}}.{{ product.product.name }}</div>
+                    <div class="col-12 text-start"><a href="{% url 'delete_from_bag' product_id=forloop.counter %}" class="text-danger p-0 till-text"><i class="fas fa-trash-alt"></i></a></div>
+                    <div class="col-12 text-start">sku: {{ product.product.sku }}</div>
+                    {% if product.colour %}
+                        <div class="col-6 text-start">Colour: {{ product.colour }}</div>
+                    {% else %}
+                    {% endif %}
+                    {% if product.size %}
+                        <div class="col-6 text-start">Size: {{ product.size }}</div>
+                    {% else %}
+                    {% endif %}
+                    <div class="col-12 text-start">Qty: {{ product.quantity }}</div>                    
+                    <div class="col-8 text-start">Price ( {{product.quantity}} X ${{product.product.price}} )</div><div class="col-4 text-end">${{ product.sub_total }}</div>
+                </div>
+            {% endfor %}
+            <div class="row m-0 till-text">
+                <div class="col-12 border-bottom border-dark"></div>
+                <div class="col-8 text-end">Total(ex Vat)</div><div class="col-4 text-end">${{ net_total }}</div>
+                <div class="col-8 text-end">Vat</div><div class="col-4 text-end">${{ vat }}</div>
+                <div class="col-8 text-end fw-bold">Grand Total</div><div class="col-4 text-end fw-bold">${{ grand_total }}</div>
+            </div>
+            <form id="pay-form" action="{% url 'checkout' %}" method="POST">
+                {% csrf_token %}
+                <div class="input-group mb-3 p-3 pb-0">
+                    <span class="input-group-text">$</span>
+                    <input type="text" class="form-control pay-input" id="amount" name="amount" aria-label="Amount (to the nearest dollar)">
+                    <span class="input-group-text">.00</span>
+                </div>
+                {% if bag_content %}
+                    <button type="submit" class="pay-button col-10 btn btn-custom-2 p-2 mt-2 mb-2 fw-bold">Confirm Payment</button>
+                {% else %}                    
+                {% endif %}
+            </form>
+        </div>
+        <!-- product screen -->
+        <div class="col-12 col-md-8 order-1 product-screen bg-custom">
+            <div class="col-12 text-center h2 fw-bold total">${{ grand_total }}</div>
+            <div class="col-10 mt-3 mx-auto">
+                <form action="#" method="POST">
+                    {% csrf_token %}
+                    <div class="input-group mb-3 search-bar">
+                        <input type="text" class="search form-control pay-form" name="q" placeholder="Search product" />
+                        <div class="input-group-append">
+                          <button class="input-group-text p-1 btn-success border-light rounded-0">Submit</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <a href="{% url 'home' %}?All=all" class="col-10 btn btn-custom-2 p-2 mb-2 fw-bold">Reset</a>
+            <div class="text-start ps-3 fw-bold text-dark">
+            {% for q in query %}                
+                {{ q|capfirst  }}
+                {% if forloop.counter == 1 and query|length == 2 %}
+                    / 
+                {% endif %}                    
+            {% endfor %}
+            </div>      
+            <div class="row m-0">
+                {% for category in categories %}
+                    <div class="dropdown col-6 col-sm-4 col-md-3 mt-1">                        
+                        <button class="btn btn-custom-2 dropdown-toggle w-100 p-2 fw-bold" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown">
+                            {{ category.name|capfirst }}
+                        </button>
+                        <div class="dropdown-menu bg-custom-dropdown" aria-labelledby="dropdownMenuButton">
+                            <a class="dropdown-item text-dark fw-bold" href="{% url 'home' %}?query={{category}}">All</a>
+                            {% for subcategory in category.cat.all %}
+                                <a class="dropdown-item text-dark fw-bold" href="{% url 'home' %}?query={{category}}&query={{subcategory}}">{{ subcategory }}</a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>           
+            <div class="row m-0 mt-2">
+                {% for product in products %}
+                    {% if product.sizes_available or product.colour_available %}
+                        <a href="#" class="col-6 col-sm-4 col-md-3 col-lg-2 product-icon" data-bs-toggle="modal" data-bs-target="#productAddModal{{ product.id }}">                     
+                            <img src="{{ product.image.url }}" alt="{{ product.name }}"/>                        
+                            <div class="product-description" >
+                                <div class="col-12 bg-custom-price text-light">${{product.price}}</div>
+                            </div>
+                        </a>
+                    {% else %}
+                        <a href="{% url 'add_to_bag' product_id=product.id %}?product_id={{ product.id }}" class="col-6 col-sm-4 col-md-3 col-lg-2 product-icon">                        
+                            <img src="{{ product.image.url }}" alt="{{ product.name }}"/>                        
+                            <div class="product-description" >
+                                <div class="col-12 bg-custom-price text-light">${{product.price}}</div>
+                            </div>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+            </div> 
+        </div>
+    </div>
+    <!-- Add Product Modal -->
+    {% for product in products %}
+        <div class="modal fade product-add-modal" id="productAddModal{{ product.id }}" data-bs-backdrop="static">
+            <div class="modal-dialog">
+            <div class="add-product-modal">
+                <div class="modal-header p-1">
+                <h5 class="modal-title text-dark" id="exampleModalLabel">{{ product.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="{% url 'add_to_bag' product_id=product.id %}" method="POST">
+                        {% csrf_token %}
+                        {% if product.colour_available %}                            
+                            <select class="form-select m-2" name="colour" id="colour" required>                     
+                                <option value="" selected>Select Colour</option>
+                                {% for colour in product.colour_available|make_list %}
+                                    <option value="{{ colour }}">{{ colour }}</option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                        {% if product.sizes_available %}
+                            <select class="form-select m-2" name="size" id="size" required>
+                                <option value="" selected>Select Size</option>
+                                {% for size in product.sizes_available|make_list %}
+                                    <option value="{{ size }}">{{ size }}</option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                        <button type="submit" class="p-1 m-2 btn-success w-100 border-0 rounded-0">Submit</button>
+                    </form>                
+                </div>                
+            </div>
+            </div>
+        </div>
+    {% endfor %}
+{% endblock %}
+
+{% block extra_js %}              
+    <script src="{% static 'home/js/home.js' %}" type="text/javascript"></script>
+{% endblock %}
